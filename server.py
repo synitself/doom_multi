@@ -2,6 +2,7 @@ import socket
 import threading
 import pickle
 import pygame as pg
+from sprite_object import *
 
 from settings import SERVER_PORT, FPS
 from map import Map
@@ -12,10 +13,10 @@ from npc import NPC, SoldierNPC, CacoDemonNPC, CyberDemonNPC
 
 class GameServerMock:
     def __init__(self):
+        self.player = None  # <-- ПЕРЕМЕСТИТЕ ЭТУ СТРОКУ В НАЧАЛО
         self.map = Map(self)
         self.object_handler = ObjectHandler(self)
         self.pathfinding = PathFinding(self)
-        self.player = None
         self.delta_time = 1.0
 
 

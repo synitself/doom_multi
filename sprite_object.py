@@ -10,10 +10,16 @@ class SpriteObject:
         self.game = game
         self.player = game.player
         self.x, self.y = pos
-        self.image = pg.image.load(path).convert_alpha()
-        self.IMAGE_WIDTH = self.image.get_width()
-        self.IMAGE_HALF_WIDTH = self.image.get_width() // 2
-        self.IMAGE_RATIO = self.IMAGE_WIDTH / self.image.get_height()
+        self.image = None  # Инициализируем как None
+
+        # --- НАЧАЛО ИЗМЕНЕНИЙ ---
+        if GAME_MODE == 'CLIENT':
+            self.image = pg.image.load(path).convert_alpha()
+            self.IMAGE_WIDTH = self.image.get_width()
+            self.IMAGE_HALF_WIDTH = self.image.get_width() // 2
+            self.IMAGE_RATIO = self.IMAGE_WIDTH / self.image.get_height()
+        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
+
         self.dx, self.dy, self.theta, self.screen_x, self.dist, self.norm_dist = 0, 0, 0, 0, 1, 1
         self.sprite_half_width = 0
         self.SPRITE_SCALE = scale
@@ -69,9 +75,12 @@ class AnimatedSprite(SpriteObject):
         self.animate(self.images)
 
     def animate(self, images):
-        if self.animation_trigger:
+        # --- НАЧАЛО ИЗМЕНЕНИЙ ---
+        # Проверяем, что список картинок не пустой (на сервере он будет пустой)
+        if self.animation_trigger and images:
             images.rotate(-1)
             self.image = images[0]
+        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
     def check_animation_time(self):
         self.animation_trigger = False
@@ -82,8 +91,11 @@ class AnimatedSprite(SpriteObject):
 
     def get_images(self, path):
         images = deque()
-        for file_name in os.listdir(path):
-            if os.path.isfile(os.path.join(path, file_name)):
-                img = pg.image.load(path + '/' + file_name).convert_alpha()
-                images.append(img)
+        # --- НАЧАЛО ИЗМЕНЕНИЙ ---
+        if GAME_MODE == 'CLIENT':
+            for file_name in os.listdir(path):
+                if os.path.isfile(os.path.join(path, file_name)):
+                    img = pg.image.load(path + '/' + file_name).convert_alpha()
+                    images.append(img)
+        # --- КОНЕЦ ИЗМЕНЕНИЙ ---
         return images
