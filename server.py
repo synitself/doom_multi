@@ -13,7 +13,7 @@ from npc import NPC, SoldierNPC, CacoDemonNPC, CyberDemonNPC
 
 class GameServerMock:
     def __init__(self):
-        self.player = None  # <-- ПЕРЕМЕСТИТЕ ЭТУ СТРОКУ В НАЧАЛО
+        self.player = None
         self.map = Map(self)
         self.object_handler = ObjectHandler(self)
         self.pathfinding = PathFinding(self)

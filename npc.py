@@ -6,11 +6,13 @@ class NPC(AnimatedSprite):
     def __init__(self, game, path='resources/sprites/npc/soldier/0.png', pos=(10.5, 5.5),
                  scale=0.6, shift=0.38, animation_time=180):
         super().__init__(game, path, pos, scale, shift, animation_time)
-        self.attack_images = self.get_images(self.path + '/attack')
-        self.death_images = self.get_images(self.path + '/death')
-        self.idle_images = self.get_images(self.path + '/idle')
-        self.pain_images = self.get_images(self.path + '/pain')
-        self.walk_images = self.get_images(self.path + '/walk')
+
+        if GAME_MODE == 'CLIENT':
+            self.attack_images = self.get_images(self.path + '/attack')
+            self.death_images = self.get_images(self.path + '/death')
+            self.idle_images = self.get_images(self.path + '/idle')
+            self.pain_images = self.get_images(self.path + '/pain')
+            self.walk_images = self.get_images(self.path + '/walk')
 
         self.attack_dist = randint(3, 6)
         self.speed = 0.03
@@ -25,10 +27,16 @@ class NPC(AnimatedSprite):
         self.player_search_trigger = False
 
     def update(self):
-        self.check_animation_time()
-        self.get_sprite()
-        self.run_logic()
-        # self.draw_ray_cast()
+        if GAME_MODE == 'SERVER':
+            if self.alive:
+                self.run_logic()
+        elif GAME_MODE == 'CLIENT':
+            self.check_animation_time()
+            self.get_sprite()
+            if not self.alive:
+                self.animate_death()
+            elif self.pain:
+                self.animate(self.pain_images)
 
     def check_wall(self, x, y):
         return (x, y) not in self.game.map.world_map
@@ -43,7 +51,6 @@ class NPC(AnimatedSprite):
         next_pos = self.game.pathfinding.get_path(self.map_pos, self.game.player.map_pos)
         next_x, next_y = next_pos
 
-        # pg.draw.rect(self.game.screen, 'blue', (100 * next_x, 100 * next_y, 100, 100))
         if next_pos not in self.game.object_handler.npc_positions:
             angle = math.atan2(next_y + 0.5 - self.y, next_x + 0.5 - self.x)
             dx = math.cos(angle) * self.speed
@@ -51,10 +58,8 @@ class NPC(AnimatedSprite):
             self.check_wall_collision(dx, dy)
 
     def attack(self):
-        if self.animation_trigger:
-            self.game.sound.npc_shot.play()
-            if random() < self.accuracy:
-                self.game.player.get_damage(self.attack_damage)
+        if random() < self.accuracy:
+            pass
 
     def animate_death(self):
         if not self.alive:
@@ -80,34 +85,23 @@ class NPC(AnimatedSprite):
     def check_health(self):
         if self.health < 1:
             self.alive = False
-            self.game.sound.npc_death.play()
 
     def run_logic(self):
-        if self.alive:
-            self.ray_cast_value = self.ray_cast_player_npc()
-            self.check_hit_in_npc()
+        self.ray_cast_value = self.ray_cast_player_npc()
 
-            if self.pain:
-                self.animate_pain()
+        if self.pain:
+            pass
 
-            elif self.ray_cast_value:
-                self.player_search_trigger = True
-
-                if self.dist < self.attack_dist:
-                    self.animate(self.attack_images)
-                    self.attack()
-                else:
-                    self.animate(self.walk_images)
-                    self.movement()
-
-            elif self.player_search_trigger:
-                self.animate(self.walk_images)
-                self.movement()
-
+        if self.ray_cast_value:
+            self.player_search_trigger = True
+            if self.dist < self.attack_dist:
+                self.attack()
             else:
-                self.animate(self.idle_images)
+                self.movement()
+        elif self.player_search_trigger:
+            self.movement()
         else:
-            self.animate_death()
+            pass
 
     @property
     def map_pos(self):
@@ -123,12 +117,15 @@ class NPC(AnimatedSprite):
         ox, oy = self.game.player.pos
         x_map, y_map = self.game.player.map_pos
 
+        dx_player = ox - self.x
+        dy_player = oy - self.y
+        self.dist = math.hypot(dx_player, dy_player)
+        self.theta = math.atan2(dy_player, dx_player)
         ray_angle = self.theta
 
         sin_a = math.sin(ray_angle)
         cos_a = math.cos(ray_angle)
 
-        # horizontals
         y_hor, dy = (y_map + 1, 1) if sin_a > 0 else (y_map - 1e-6, -1)
 
         depth_hor = (y_hor - oy) / sin_a
@@ -149,7 +146,6 @@ class NPC(AnimatedSprite):
             y_hor += dy
             depth_hor += delta_depth
 
-        # verticals
         x_vert, dx = (x_map + 1, 1) if cos_a > 0 else (x_map - 1e-6, -1)
 
         depth_vert = (x_vert - ox) / cos_a
@@ -189,6 +185,7 @@ class SoldierNPC(NPC):
                  scale=0.6, shift=0.38, animation_time=180):
         super().__init__(game, path, pos, scale, shift, animation_time)
 
+
 class CacoDemonNPC(NPC):
     def __init__(self, game, path='resources/sprites/npc/caco_demon/0.png', pos=(10.5, 6.5),
                  scale=0.7, shift=0.27, animation_time=250):
@@ -199,6 +196,7 @@ class CacoDemonNPC(NPC):
         self.speed = 0.05
         self.accuracy = 0.35
 
+
 class CyberDemonNPC(NPC):
     def __init__(self, game, path='resources/sprites/npc/cyber_demon/0.png', pos=(11.5, 6.0),
                  scale=1.0, shift=0.04, animation_time=210):
@@ -208,24 +206,3 @@ class CyberDemonNPC(NPC):
         self.attack_damage = 15
         self.speed = 0.055
         self.accuracy = 0.25
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

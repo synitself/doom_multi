@@ -16,14 +16,15 @@ if GAME_MODE == 'CLIENT':
 
     class RemotePlayer(SpriteObject):
         def __init__(self, game, pos=(11.5, 3.5)):
-            super().__init__(game, path='resources/sprites/npc/soldier/0.png', pos=pos, scale=0.6, shift=0.38)
+            # --- ИЗМЕНЕНИЕ: Используем специальный спрайт игрока ---
+            super().__init__(game, path='resources/sprites/player/0.png', pos=pos, scale=0.7, shift=0.2)
 
         def update_pos(self, pos, angle):
             self.x, self.y = pos
             self.angle = angle
 
         def update(self):
-            pass
+            self.get_sprite()
 
 
     class Game:
@@ -56,7 +57,6 @@ if GAME_MODE == 'CLIENT':
             self.object_renderer = ObjectRenderer(self)
             self.raycasting = RayCasting(self)
             self.object_handler = ObjectHandler(self)
-            self.object_handler.remote_players = {}
             self.weapon = Weapon(self)
             self.sound = Sound(self)
             self.pathfinding = PathFinding(self)
