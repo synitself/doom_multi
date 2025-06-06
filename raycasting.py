@@ -12,9 +12,14 @@ class RayCasting:
 
     def get_objects_to_render(self):
         self.objects_to_render = []
-        all_sprites = self.game.object_handler.sprite_list + self.game.object_handler.npc_list + list(
-            self.game.remote_players.values())
 
+        # Собираем все спрайты в один список для обработки
+        all_sprites = []
+        if GAME_MODE == 'CLIENT':
+            all_sprites = self.game.object_handler.sprite_list + self.game.object_handler.npc_list + list(
+                self.game.remote_players.values())
+
+        # Обрабатываем стены
         for ray, values in enumerate(self.ray_casting_result):
             depth, proj_height, texture, offset = values
 
@@ -33,10 +38,12 @@ class RayCasting:
                 wall_column = pg.transform.scale(wall_column, (SCALE, HEIGHT))
                 wall_pos = (ray * SCALE, 0)
 
-            self.objects_to_render.append((depth, wall_column, wall_pos))
+            # Добавляем стену как кортеж из 4 элементов, где последний - None
+            self.objects_to_render.append((depth, wall_column, wall_pos, None))
 
+        # Обрабатываем спрайты
         for sprite in all_sprites:
-            if sprite.image:
+            if sprite.image and sprite.norm_dist > 0.5:
                 self.objects_to_render.append(sprite.get_sprite_projection_data())
 
     def ray_cast(self):

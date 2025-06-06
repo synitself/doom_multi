@@ -1,7 +1,7 @@
 from settings import *
 import pygame as pg
 import math
-from npc import *
+from npc import NPC
 
 
 class Player:
@@ -46,15 +46,12 @@ class Player:
                 self.shot = True
                 self.game.weapon.reloading = True
 
-                hit_npc_id = None
                 sorted_sprites = sorted(self.game.raycasting.objects_to_render, key=lambda obj: obj[0], reverse=True)
 
-                for obj in sorted_sprites:
-                    if isinstance(obj, tuple) and len(obj) > 3 and isinstance(obj[3], NPC) and obj[3].alive:
-                        npc = obj[3]
-                        if HALF_WIDTH - npc.sprite_half_width < npc.screen_x < HALF_WIDTH + npc.sprite_half_width:
-                            hit_npc_id = npc.id
-                            return hit_npc_id
+                for depth, image, pos, instance in sorted_sprites:
+                    if instance and isinstance(instance, NPC) and instance.alive:
+                        if HALF_WIDTH - instance.sprite_half_width < instance.screen_x < HALF_WIDTH + instance.sprite_half_width:
+                            return instance.id
         return None
 
     def movement(self):

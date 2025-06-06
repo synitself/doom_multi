@@ -1,7 +1,6 @@
 import pygame as pg
 from settings import *
 
-
 class ObjectRenderer:
     def __init__(self, game):
         self.game = game
@@ -41,12 +40,11 @@ class ObjectRenderer:
         self.sky_offset = (self.sky_offset + 4.5 * self.game.player.rel) % WIDTH
         self.screen.blit(self.sky_image, (-self.sky_offset, 0))
         self.screen.blit(self.sky_image, (-self.sky_offset + WIDTH, 0))
-        # floor
         pg.draw.rect(self.screen, FLOOR_COLOR, (0, HALF_HEIGHT, WIDTH, HEIGHT))
 
     def render_game_objects(self):
         list_objects = sorted(self.game.raycasting.objects_to_render, key=lambda t: t[0], reverse=True)
-        for depth, image, pos in list_objects:
+        for depth, image, pos, instance in list_objects:
             self.screen.blit(image, pos)
 
     @staticmethod
