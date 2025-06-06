@@ -14,6 +14,7 @@ if GAME_MODE == 'CLIENT':
     from sound import *
     from pathfinding import *
 
+
     class RemotePlayer(SpriteObject):
         def __init__(self, game, pos=(11.5, 3.5)):
             super().__init__(game, path='resources/sprites/player/0.png', pos=pos, scale=0.7, shift=0.2)
@@ -36,6 +37,7 @@ if GAME_MODE == 'CLIENT':
 
             self.player_id = initial_data['id']
             self.game_state = initial_data['state']
+            self.npc_setup_data = initial_data['npc_setup']
 
             pg.init()
             pg.mouse.set_visible(False)
@@ -46,6 +48,9 @@ if GAME_MODE == 'CLIENT':
             self.global_trigger = False
             self.global_event = pg.USEREVENT + 0
             pg.time.set_timer(self.global_event, 40)
+
+            self.remote_players = {}
+            self.last_hit_npc_id = None
             self.new_game()
 
         def new_game(self):
@@ -55,9 +60,8 @@ if GAME_MODE == 'CLIENT':
             self.player.x, self.player.y = player_initial_pos
             self.object_renderer = ObjectRenderer(self)
             self.raycasting = RayCasting(self)
-            # В ЭТОМ МЕСТЕ ObjectHandler() создается и сам инициализирует remote_players
             self.object_handler = ObjectHandler(self)
-            # Убедитесь, что здесь НЕТ строки self.object_handler.remote_players = {}
+            self.object_handler.setup_npcs_from_server(self.npc_setup_data)
             self.weapon = Weapon(self)
             self.sound = Sound(self)
             self.pathfinding = PathFinding(self)
@@ -65,12 +69,17 @@ if GAME_MODE == 'CLIENT':
 
         def update(self):
             self.player.update()
+
             player_data = {
                 'pos': self.player.pos,
                 'angle': self.player.angle,
                 'health': self.player.health,
-                'shot': self.player.shot
+                'shot': self.player.shot,
+                'hit_npc_id': self.last_hit_npc_id
             }
+
+            self.player.shot = False
+            self.last_hit_npc_id = None
 
             new_game_state = self.network.send(player_data)
             if not new_game_state:
@@ -84,6 +93,10 @@ if GAME_MODE == 'CLIENT':
 
             self.raycasting.update()
             self.object_handler.update()
+
+            for player in self.remote_players.values():
+                player.update()
+
             self.weapon.update()
 
             pg.display.flip()
@@ -94,16 +107,16 @@ if GAME_MODE == 'CLIENT':
             if not self.game_state: return
             remote_player_ids = self.game_state['players'].keys() - {self.player_id}
 
-            for p_id in list(self.object_handler.remote_players.keys()):
+            for p_id in list(self.remote_players.keys()):
                 if p_id not in remote_player_ids:
-                    del self.object_handler.remote_players[p_id]
+                    del self.remote_players[p_id]
 
             for p_id in remote_player_ids:
                 p_data = self.game_state['players'][p_id]
-                if p_id not in self.object_handler.remote_players:
-                    self.object_handler.remote_players[p_id] = RemotePlayer(self, pos=p_data['pos'])
+                if p_id not in self.remote_players:
+                    self.remote_players[p_id] = RemotePlayer(self, pos=p_data['pos'])
                 else:
-                    self.object_handler.remote_players[p_id].update_pos(p_data['pos'], p_data['angle'])
+                    self.remote_players[p_id].update_pos(p_data['pos'], p_data['angle'])
 
         def update_npcs_from_state(self):
             if not self.game_state: return
@@ -113,6 +126,10 @@ if GAME_MODE == 'CLIENT':
                     npc_obj.x, npc_obj.y = npc_data['pos']
                     npc_obj.health = npc_data['health']
                     npc_obj.alive = npc_data['alive']
+                    if npc_obj.pain != npc_data['pain'] and npc_data['pain']:
+                        self.sound.npc_pain.play()
+                    if not npc_obj.alive and npc_obj.was_alive:
+                        self.sound.npc_death.play()
                     npc_obj.pain = npc_data['pain']
 
         def draw(self):
@@ -128,7 +145,10 @@ if GAME_MODE == 'CLIENT':
                     sys.exit()
                 elif event.type == self.global_event:
                     self.global_trigger = True
-                self.player.single_fire_event(event)
+
+                hit_id = self.player.single_fire_event(event)
+                if hit_id is not None:
+                    self.last_hit_npc_id = hit_id
 
         def run(self):
             while True:
@@ -138,7 +158,6 @@ if GAME_MODE == 'CLIENT':
 
 elif GAME_MODE == 'SERVER':
     from server import Server
-
 
 if __name__ == '__main__':
     if GAME_MODE == 'SERVER':

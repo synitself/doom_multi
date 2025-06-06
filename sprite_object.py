@@ -23,17 +23,14 @@ class SpriteObject:
         self.SPRITE_SCALE = scale
         self.SPRITE_HEIGHT_SHIFT = shift
 
-    def get_sprite_projection(self):
+    def get_sprite_projection_data(self):
         proj = SCREEN_DIST / self.norm_dist * self.SPRITE_SCALE
         proj_width, proj_height = proj * self.IMAGE_RATIO, proj
-
         image = pg.transform.scale(self.image, (proj_width, proj_height))
-
         self.sprite_half_width = proj_width // 2
         height_shift = proj_height * self.SPRITE_HEIGHT_SHIFT
         pos = self.screen_x - self.sprite_half_width, HALF_HEIGHT - proj_height // 2 + height_shift
-
-        self.game.raycasting.objects_to_render.append((self.norm_dist, image, pos))
+        return (self.norm_dist, image, pos, self)
 
     def get_sprite(self):
         dx = self.x - self.player.x
@@ -50,11 +47,10 @@ class SpriteObject:
 
         self.dist = math.hypot(dx, dy)
         self.norm_dist = self.dist * math.cos(delta)
-        if -self.IMAGE_HALF_WIDTH < self.screen_x < (WIDTH + self.IMAGE_HALF_WIDTH) and self.norm_dist > 0.5:
-            self.get_sprite_projection()
 
     def update(self):
-        self.get_sprite()
+        if GAME_MODE == 'CLIENT':
+            self.get_sprite()
 
 
 class AnimatedSprite(SpriteObject):
@@ -64,13 +60,14 @@ class AnimatedSprite(SpriteObject):
         self.animation_time = animation_time
         self.path = path.rsplit('/', 1)[0]
         self.images = self.get_images(self.path)
-        self.animation_time_prev = pg.time.get_ticks()
+        self.animation_time_prev = pg.time.get_ticks() if GAME_MODE == 'CLIENT' else 0
         self.animation_trigger = False
 
     def update(self):
         super().update()
-        self.check_animation_time()
-        self.animate(self.images)
+        if GAME_MODE == 'CLIENT':
+            self.check_animation_time()
+            self.animate(self.images)
 
     def animate(self, images):
         if self.animation_trigger and images:

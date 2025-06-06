@@ -7,6 +7,9 @@ class NPC(AnimatedSprite):
                  scale=0.6, shift=0.38, animation_time=180):
         super().__init__(game, path, pos, scale, shift, animation_time)
 
+        self.id = None
+        self.was_alive = True
+
         if GAME_MODE == 'CLIENT':
             self.attack_images = self.get_images(self.path + '/attack')
             self.death_images = self.get_images(self.path + '/death')
@@ -27,6 +30,7 @@ class NPC(AnimatedSprite):
         self.player_search_trigger = False
 
     def update(self):
+        self.was_alive = self.alive
         if GAME_MODE == 'SERVER':
             if self.alive:
                 self.run_logic()
@@ -37,6 +41,8 @@ class NPC(AnimatedSprite):
                 self.animate_death()
             elif self.pain:
                 self.animate(self.pain_images)
+            # Дополнительные анимации на клиенте можно добавить здесь
+            # Например, основываясь на скорости (если она передается от сервера)
 
     def check_wall(self, x, y):
         return (x, y) not in self.game.map.world_map
@@ -50,11 +56,10 @@ class NPC(AnimatedSprite):
     def movement(self):
         next_pos = self.game.pathfinding.get_path(self.map_pos, self.game.player.map_pos)
         next_x, next_y = next_pos
-
         if next_pos not in self.game.object_handler.npc_positions:
             angle = math.atan2(next_y + 0.5 - self.y, next_x + 0.5 - self.x)
-            dx = math.cos(angle) * self.speed
-            dy = math.sin(angle) * self.speed
+            dx = math.cos(angle) * self.speed * self.game.delta_time
+            dy = math.sin(angle) * self.speed * self.game.delta_time
             self.check_wall_collision(dx, dy)
 
     def attack(self):
@@ -73,24 +78,8 @@ class NPC(AnimatedSprite):
         if self.animation_trigger:
             self.pain = False
 
-    def check_hit_in_npc(self):
-        if self.ray_cast_value and self.game.player.shot:
-            if HALF_WIDTH - self.sprite_half_width < self.screen_x < HALF_WIDTH + self.sprite_half_width:
-                self.game.sound.npc_pain.play()
-                self.game.player.shot = False
-                self.pain = True
-                self.health -= self.game.weapon.damage
-                self.check_health()
-
-    def check_health(self):
-        if self.health < 1:
-            self.alive = False
-
     def run_logic(self):
         self.ray_cast_value = self.ray_cast_player_npc()
-
-        if self.pain:
-            pass
 
         if self.ray_cast_value:
             self.player_search_trigger = True
@@ -100,14 +89,13 @@ class NPC(AnimatedSprite):
                 self.movement()
         elif self.player_search_trigger:
             self.movement()
-        else:
-            pass
 
     @property
     def map_pos(self):
         return int(self.x), int(self.y)
 
     def ray_cast_player_npc(self):
+        if not self.game.player: return False
         if self.game.player.map_pos == self.map_pos:
             return True
 
@@ -125,15 +113,14 @@ class NPC(AnimatedSprite):
 
         sin_a = math.sin(ray_angle)
         cos_a = math.cos(ray_angle)
+        if cos_a == 0: cos_a = 1e-6
+        if sin_a == 0: sin_a = 1e-6
 
         y_hor, dy = (y_map + 1, 1) if sin_a > 0 else (y_map - 1e-6, -1)
-
         depth_hor = (y_hor - oy) / sin_a
         x_hor = ox + depth_hor * cos_a
-
         delta_depth = dy / sin_a
         dx = delta_depth * cos_a
-
         for i in range(MAX_DEPTH):
             tile_hor = int(x_hor), int(y_hor)
             if tile_hor == self.map_pos:
@@ -147,13 +134,10 @@ class NPC(AnimatedSprite):
             depth_hor += delta_depth
 
         x_vert, dx = (x_map + 1, 1) if cos_a > 0 else (x_map - 1e-6, -1)
-
         depth_vert = (x_vert - ox) / cos_a
         y_vert = oy + depth_vert * sin_a
-
         delta_depth = dx / cos_a
         dy = delta_depth * sin_a
-
         for i in range(MAX_DEPTH):
             tile_vert = int(x_vert), int(y_vert)
             if tile_vert == self.map_pos:
@@ -172,12 +156,6 @@ class NPC(AnimatedSprite):
         if 0 < player_dist < wall_dist or not wall_dist:
             return True
         return False
-
-    def draw_ray_cast(self):
-        pg.draw.circle(self.game.screen, 'red', (100 * self.x, 100 * self.y), 15)
-        if self.ray_cast_player_npc():
-            pg.draw.line(self.game.screen, 'orange', (100 * self.game.player.x, 100 * self.game.player.y),
-                         (100 * self.x, 100 * self.y), 2)
 
 
 class SoldierNPC(NPC):

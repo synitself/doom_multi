@@ -3,7 +3,6 @@ import threading
 import pickle
 import pygame as pg
 from sprite_object import *
-
 from settings import SERVER_PORT, FPS
 from map import Map
 from object_handler import ObjectHandler
@@ -32,8 +31,17 @@ class Server:
         self.game_mock = GameServerMock()
 
         self.npcs = self.game_mock.object_handler.npc_list
-        for npc in self.npcs:
+        for i, npc in enumerate(self.npcs):
             npc.game = self.game_mock
+            npc.id = i
+
+        self.npc_initial_data = []
+        for npc in self.npcs:
+            self.npc_initial_data.append({
+                'type': npc.__class__.__name__,
+                'pos': (npc.x, npc.y),
+                'id': npc.id
+            })
 
         self.game_state = {
             'players': {},
@@ -55,6 +63,7 @@ class Server:
                 'alive': npc.alive,
                 'pain': npc.pain,
             }
+            npc.pain = False
 
     def run_game_logic(self):
         while True:
@@ -69,7 +78,7 @@ class Server:
                 min_dist = float('inf')
 
                 for p_id, p_data in self.game_state['players'].items():
-                    dist = ((npc.x - p_data['pos'][0]) ** 2 + (npc.y - p_data['pos'][1]) ** 2) ** 0.5
+                    dist = math.hypot(npc.x - p_data['pos'][0], npc.y - p_data['pos'][1])
                     if dist < min_dist:
                         min_dist = dist
                         closest_player = pg.sprite.Sprite()
@@ -88,13 +97,26 @@ class Server:
         initial_pos = (1.5 + player_id, 5)
         self.game_state['players'][player_id] = {'pos': initial_pos, 'angle': 0, 'health': 100, 'shot': False}
 
-        conn.send(pickle.dumps({'id': player_id, 'state': self.game_state}))
+        initial_payload = {
+            'id': player_id,
+            'state': self.game_state,
+            'npc_setup': self.npc_initial_data
+        }
+        conn.send(pickle.dumps(initial_payload))
 
         while True:
             try:
                 client_data = pickle.loads(conn.recv(4096))
                 if not client_data:
                     break
+
+                if client_data.get('hit_npc_id') is not None:
+                    npc_id = client_data['hit_npc_id']
+                    if npc_id < len(self.npcs) and self.npcs[npc_id].alive:
+                        self.npcs[npc_id].health -= 50
+                        self.npcs[npc_id].pain = True
+                        if self.npcs[npc_id].health < 1:
+                            self.npcs[npc_id].alive = False
 
                 self.game_state['players'][player_id].update(client_data)
                 conn.sendall(pickle.dumps(self.game_state))

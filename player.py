@@ -1,6 +1,7 @@
 from settings import *
 import pygame as pg
 import math
+from npc import *
 
 
 class Player:
@@ -13,7 +14,6 @@ class Player:
         self.rel = 0
         self.health_recovery_delay = 700
         self.time_prev = pg.time.get_ticks()
-        # diagonal movement correction
         self.diag_move_corr = 1 / math.sqrt(2)
 
     def recover_health(self):
@@ -46,6 +46,17 @@ class Player:
                 self.shot = True
                 self.game.weapon.reloading = True
 
+                hit_npc_id = None
+                sorted_sprites = sorted(self.game.raycasting.objects_to_render, key=lambda obj: obj[0], reverse=True)
+
+                for obj in sorted_sprites:
+                    if isinstance(obj, tuple) and len(obj) > 3 and isinstance(obj[3], NPC) and obj[3].alive:
+                        npc = obj[3]
+                        if HALF_WIDTH - npc.sprite_half_width < npc.screen_x < HALF_WIDTH + npc.sprite_half_width:
+                            hit_npc_id = npc.id
+                            return hit_npc_id
+        return None
+
     def movement(self):
         sin_a = math.sin(self.angle)
         cos_a = math.cos(self.angle)
@@ -73,17 +84,11 @@ class Player:
             dx += -speed_sin
             dy += speed_cos
 
-        # diag move correction
         if num_key_pressed:
             dx *= self.diag_move_corr
             dy *= self.diag_move_corr
 
         self.check_wall_collision(dx, dy)
-
-        # if keys[pg.K_LEFT]:
-        #     self.angle -= PLAYER_ROT_SPEED * self.game.delta_time
-        # if keys[pg.K_RIGHT]:
-        #     self.angle += PLAYER_ROT_SPEED * self.game.delta_time
         self.angle %= math.tau
 
     def check_wall(self, x, y):
@@ -98,8 +103,8 @@ class Player:
 
     def draw(self):
         pg.draw.line(self.game.screen, 'yellow', (self.x * 100, self.y * 100),
-                    (self.x * 100 + WIDTH * math.cos(self.angle),
-                     self.y * 100 + WIDTH * math. sin(self.angle)), 2)
+                     (self.x * 100 + WIDTH * math.cos(self.angle),
+                      self.y * 100 + WIDTH * math.sin(self.angle)), 2)
         pg.draw.circle(self.game.screen, 'green', (self.x * 100, self.y * 100), 15)
 
     def mouse_control(self):
