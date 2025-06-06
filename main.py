@@ -16,7 +16,6 @@ if GAME_MODE == 'CLIENT':
 
     class RemotePlayer(SpriteObject):
         def __init__(self, game, pos=(11.5, 3.5)):
-            # --- ИЗМЕНЕНИЕ: Используем специальный спрайт игрока ---
             super().__init__(game, path='resources/sprites/player/0.png', pos=pos, scale=0.7, shift=0.2)
 
         def update_pos(self, pos, angle):
@@ -56,7 +55,9 @@ if GAME_MODE == 'CLIENT':
             self.player.x, self.player.y = player_initial_pos
             self.object_renderer = ObjectRenderer(self)
             self.raycasting = RayCasting(self)
+            # В ЭТОМ МЕСТЕ ObjectHandler() создается и сам инициализирует remote_players
             self.object_handler = ObjectHandler(self)
+            # Убедитесь, что здесь НЕТ строки self.object_handler.remote_players = {}
             self.weapon = Weapon(self)
             self.sound = Sound(self)
             self.pathfinding = PathFinding(self)
